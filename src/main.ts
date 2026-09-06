@@ -452,10 +452,15 @@ function renderSingleMistake() {
     }
   }
   const recovery = comparison.intervention.recoveryStart;
-  $("mistake-recovery").textContent =
-    recovery === null ? "观察窗口内未恢复" : `第 ${recovery} 轮`;
-  const outcome =
-    recovery === null
+  const insufficientWindow = count - at < 10;
+  $("mistake-recovery").textContent = insufficientWindow
+    ? "观察窗口不足，无法判定"
+    : recovery === null
+      ? "观察窗口内未恢复"
+      : `第 ${recovery} 轮`;
+  const outcome = insufficientWindow
+    ? "干预后不足 10 轮，无法判定是否达到恢复标准。"
+    : recovery === null
       ? "没有观测到完整的连续 10 轮共同合作。"
       : `第 ${recovery} 至 ${recovery + 9} 轮构成首个完整区段。`;
   $("mistake-window").textContent =

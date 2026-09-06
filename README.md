@@ -74,3 +74,9 @@ npx playwright test --list
 `.github/workflows/pages.yml` 在 `main` 推送后先执行 Node 测试、构建和 Chromium 桌面/手机回归，再发布 GitHub Pages。PR 只验证。仓库 Pages 来源需设为 **GitHub Actions**。Vite 使用相对资源路径，适用于仓库子路径部署。
 
 目标仓库：`wangchuan2003-a11y/cooperation-lab`。本地开发不配置远端、不自动推送。
+
+## 单次失误实验（1.1.0）
+
+独立折叠区域把背景执行噪声设为零，仅在指定一轮翻转左方动作一次，对比无干预轨迹。可选择 TFT、GRIM 或 WSLS 的同策略对局；它不改变主实验的排名、CSV 或分享设置。
+
+“恢复”在此被明确定义为干预后首次出现连续 10 轮双方合作。观测窗口不足 10 轮时显示无法判定；有足够窗口但未达标准时，也只说明本次窗口内的结果，不推断永远无法恢复。

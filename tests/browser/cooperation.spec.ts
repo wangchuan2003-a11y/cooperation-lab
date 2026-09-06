@@ -219,6 +219,14 @@ test("one forced mistake distinguishes recovery patterns without changing the ma
     "观察窗口内未恢复",
   );
   await expect(page.locator("#mistake-intervention-count")).toHaveText("38");
+  await page.locator("#mistake-at").fill("40");
+  await page.locator("#mistake-run").click();
+  await expect(page.locator("#mistake-recovery")).toHaveText(
+    "观察窗口不足，无法判定",
+  );
+  await expect(page.locator("#mistake-window")).toContainText(
+    "干预后剩余 0 轮",
+  );
   await expect(page.locator("#matrix tbody")).toHaveText(matrix!);
   expect(await page.locator("#score-a, #score-b").allTextContents()).toEqual(
     scores,
