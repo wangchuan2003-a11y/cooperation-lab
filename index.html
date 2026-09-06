@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f5f3ed" />
+    <meta
+      name="description"
+      content="六种重复囚徒困境策略，同一组条件。改变噪声，查看对局矩阵、逐轮动作与真实得分。"
+    />
+    <title>Cooperation Lab · 合作博弈实验</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%231f5149'/%3E%3Ccircle cx='25' cy='32' r='13' fill='%23e6eadc'/%3E%3Ccircle cx='39' cy='32' r='13' fill='%23c8a37c' fill-opacity='.85'/%3E%3C/svg%3E"
+    />
+  </head>
+  <body>
+    <header>
+      <a href="./" class="brand"
+        ><span class="brand-mark" aria-hidden="true"></span
+        ><span>COOPERATION <strong>LAB</strong></span></a
+      >
+      <nav>
+        <a href="#rules">六种策略</a><a href="#limits">实验边界</a
+        ><a
+          href="https://github.com/wangchuan2003-a11y/cooperation-lab"
+          target="_blank"
+          rel="noopener"
+          >源码 ↗</a
+        >
+      </nav>
+    </header>
+    <main>
+      <section class="intro">
+        <div>
+          <p class="eyebrow">重复囚徒困境 · 一个关于回应的实验</p>
+          <h1>一次误会，<br /><span>会在多少轮之后结束？</span></h1>
+        </div>
+        <div class="intro-side">
+          <p>有的策略记得上一轮。<br />有的策略记得每一次。</p>
+          <p class="intro-note">
+            改变执行噪声，观察它们如何相处。<br />这里比较算法，不评判一个人。
+          </p>
+        </div>
+      </section>
+      <section class="experiment-controls" aria-label="实验条件">
+        <div class="preset-strip">
+          <span>先换一种情景</span>
+          <div role="group" aria-label="噪声预设">
+            <button data-noise="0" aria-pressed="false">
+              零噪声 <small>0%</small></button
+            ><button data-noise="5" aria-pressed="true">
+              误会情景 <small>5%</small></button
+            ><button data-noise="15" aria-pressed="false">
+              高噪声 <small>15%</small>
+            </button>
+          </div>
+        </div>
+        <div class="parameter-row">
+          <label class="slider-field" for="rounds"
+            ><span>重复轮次 <strong id="round-value">120</strong></span
+            ><input
+              id="rounds"
+              type="range"
+              min="20"
+              max="300"
+              step="1"
+              value="120" /></label
+          ><label class="slider-field" for="noise"
+            ><span>执行噪声 <strong id="noise-value">5%</strong></span
+            ><input
+              id="noise"
+              type="range"
+              min="0"
+              max="20"
+              step="any"
+              value="5" /></label
+          ><label class="seed-field" for="seed"
+            ><span>随机种子</span
+            ><input
+              id="seed"
+              type="number"
+              min="0"
+              max="4294967295"
+              step="1"
+              value="42" /></label
+          ><button id="rerun" class="primary">
+            重跑这组条件 <span>↻</span></button
+          ><button id="new-seed" class="quiet">换个种子</button>
+        </div>
+        <p class="noise-explanation">
+          噪声会独立翻转每方的<strong>实际动作</strong>，对方看到的也是这个动作；得分不按原意计算。同样的设置与种子会得到同样的结果。
+        </p>
+      </section>
+      <section class="overview" aria-label="全体策略比较">
+        <article class="ranking-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">从全体来看</p>
+              <h2>本次得分排序</h2>
+            </div>
+            <span class="small-tag">平均每轮 / 满分 5</span>
+          </div>
+          <div id="ranking" class="ranking"></div>
+          <div class="overview-footer">
+            <span><strong>21</strong> 组配对 · 包含自我对局</span
+            ><span
+              >策略平均合作率 <strong id="overall-cooperation">—</strong></span
+            >
+          </div>
+          <p class="panel-note">
+            六个对手等权；自我对局取双方平均。此排名只适用于当前条件与这六种策略。
+          </p>
+        </article>
+        <article class="matrix-panel">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">把关系展开</p>
+              <h2>谁遇见了谁</h2>
+            </div>
+            <div class="matrix-scale">
+              <span>低</span><i></i><span>高</span>
+            </div>
+          </div>
+          <div class="matrix-scroll">
+            <table id="matrix">
+              <caption>
+                每格是行策略对列策略的平均每轮得分。点击任意格查看该对局。
+              </caption>
+            </table>
+          </div>
+          <p class="panel-note">
+            读行是“它的得分”，读列是“它的对手”。矩阵可以横向滑动；深色不表示道德上的更好。
+          </p>
+        </article>
+      </section>
+      <section class="duel-panel" aria-label="逐轮对局">
+        <div class="duel-heading">
+          <div>
+            <p class="eyebrow">走进一段具体的互动</p>
+            <h2>它们之间发生了什么</h2>
+          </div>
+          <div class="duel-selectors">
+            <label for="left-strategy"
+              ><span class="player-dot a"></span
+              ><select id="left-strategy" aria-label="左方策略"></select></label
+            ><span class="versus">与</span
+            ><label for="right-strategy"
+              ><span class="player-dot b"></span
+              ><select id="right-strategy" aria-label="右方策略"></select
+            ></label>
+          </div>
+        </div>
+        <div class="duel-summary">
+          <div>
+            <span class="player-dot a"></span><span id="name-a"></span
+            ><strong id="score-a">—</strong><small>累计得分</small
+            ><span class="coop-summary">合作 <b id="coop-a">—</b></span>
+          </div>
+          <div>
+            <span class="player-dot b"></span><span id="name-b"></span
+            ><strong id="score-b">—</strong><small>累计得分</small
+            ><span class="coop-summary">合作 <b id="coop-b">—</b></span>
+          </div>
+        </div>
+        <div class="duel-grid">
+          <div class="curve-panel">
+            <div class="subheading">
+              <h3>累计得分</h3>
+              <span>每个拐点，都是一次选择的结果</span>
+            </div>
+            <canvas
+              id="score-chart"
+              role="img"
+              aria-label="双方累计得分曲线。下方轮次滑块和明细表提供相同数据。"
+            ></canvas>
+          </div>
+          <div class="actions-panel">
+            <div class="subheading">
+              <h3>实际动作轨迹</h3>
+              <div class="action-legend">
+                <span><i class="c"></i>C 合作</span
+                ><span><i class="d"></i>D 不合作</span
+                ><span><i class="flip"></i>被翻转</span>
+              </div>
+            </div>
+            <div class="track-scroll">
+              <div class="tracks">
+                <div class="track-label">
+                  <span class="player-dot a"></span
+                  ><span id="track-name-a"></span>
+                </div>
+                <div id="track-a" class="track" role="img"></div>
+                <div class="track-label">
+                  <span class="player-dot b"></span
+                  ><span id="track-name-b"></span>
+                </div>
+                <div id="track-b" class="track" role="img"></div>
+                <div class="track-axis">
+                  <span>第 1 轮</span><span id="last-round">第 120 轮</span>
+                </div>
+              </div>
+            </div>
+            <p class="track-note">
+              细线标记执行翻转。点按动作条，或用下方滑块选择一轮。长对局可横向查看。
+            </p>
+            <div class="inspect-control">
+              <label for="inspect-round"
+                >查看 <strong id="inspect-value">第 1 轮</strong></label
+              ><input
+                id="inspect-round"
+                type="range"
+                min="1"
+                max="120"
+                value="1"
+                step="1"
+              />
+            </div>
+            <div
+              id="round-detail"
+              class="round-detail"
+              role="status"
+              aria-live="polite"
+            ></div>
+          </div>
+        </div>
+        <div class="duel-footer">
+          <p id="duel-note">这里展示的是同一次全体比较中的对局。</p>
+          <button id="export-csv">导出此对局 CSV ↓</button
+          ><button id="share">分享完整实验 ↗</button>
+        </div>
+      </section>
+      <p id="status" class="status" role="status" aria-live="polite">
+        每次实验都只回答一组具体条件下的问题。
+      </p>
+      <section id="rules" class="rules-section">
+        <div class="rules-intro">
+          <p class="eyebrow">不是标签，是六段明确的规则</p>
+          <h2>策略只会做<br /><span>定义过的事。</span></h2>
+          <div class="payoff-card">
+            <h3>固定收益表</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>双方动作</th>
+                  <th>左 / 右得分</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>C / C</td>
+                  <td>3 / 3</td>
+                </tr>
+                <tr>
+                  <td>D / C</td>
+                  <td>5 / 0</td>
+                </tr>
+                <tr>
+                  <td>C / D</td>
+                  <td>0 / 5</td>
+                </tr>
+                <tr>
+                  <td>D / D</td>
+                  <td>1 / 1</td>
+                </tr>
+              </tbody>
+            </table>
+            <p>T = 5 &gt; R = 3 &gt; P = 1 &gt; S = 0</p>
+          </div>
+        </div>
+        <div id="strategy-rules" class="strategy-rules"></div>
+      </section>
+      <section id="limits" class="limits-section">
+        <h2>一个有用的简化，<br />也是一个有限的视角。</h2>
+        <div>
+          <p>
+            实验固定执行有限轮数，但这六种策略不会利用“已知最后一轮”倒推。它不是完整的均衡求解器，也没有模拟学习、声誉网络、退出或真实人的动机。
+          </p>
+          <p>
+            单一种子的排序不是普遍最优。对手构成、轮次、随机失误和收益表都会改变结果。得分是模型中的数值，不等同于善意、信任或人的价值。
+          </p>
+          <a
+            href="https://plato.stanford.edu/entries/prisoner-dilemma/"
+            target="_blank"
+            rel="noopener"
+            >继续阅读：Stanford Encyclopedia of Philosophy ↗</a
+          >
+        </div>
+      </section>
+    </main>
+    <footer>
+      <span>COOPERATION LAB</span><span>观察回应的结构，保留判断的空间。</span
+      ><a
+        href="https://github.com/wangchuan2003-a11y/cooperation-lab"
+        target="_blank"
+        rel="noopener"
+        >实现、假设与测试 ↗</a
+      >
+    </footer>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
