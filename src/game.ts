@@ -351,3 +351,101 @@ export function duelCSV(duel: Duel): string {
     "\r\n"
   );
 }
+
+export type SingleErrorStrategy = "tft" | "grim" | "wsls";
+export type SingleErrorRound = Omit<Round, "noiseA" | "noiseB"> & {
+  forcedA: boolean;
+};
+export type SingleErrorTrace = {
+  rounds: SingleErrorRound[];
+  mutualCooperation: number;
+  /** First 1-based start of ten CC rounds strictly after the intervention round. */
+  recoveryStart: number | null;
+};
+
+function summarizeSingleError(
+  rounds: SingleErrorRound[],
+  errorRound: number,
+): SingleErrorTrace {
+  let mutualCooperation = 0;
+  let streak = 0;
+  let recoveryStart: number | null = null;
+  for (const round of rounds) {
+    const mutual = round.actionA === "C" && round.actionB === "C";
+    if (mutual) mutualCooperation++;
+    streak = round.number > errorRound && mutual ? streak + 1 : 0;
+    if (streak === 10 && recoveryStart === null)
+      recoveryStart = round.number - 9;
+  }
+  return { rounds, mutualCooperation, recoveryStart };
+}
+
+/** A separate causal comparison: zero background noise, one forced left action. */
+export function runSingleMistake(
+  strategy: SingleErrorStrategy,
+  rounds: number,
+  errorRound: number,
+) {
+  validateConfig({ rounds, noise: 0, seed: 0 });
+  if (
+    !["tft", "grim", "wsls"].includes(strategy) ||
+    !Number.isInteger(errorRound) ||
+    errorRound < 1 ||
+    errorRound > rounds
+  ) {
+    throw new TypeError("Invalid single-error experiment.");
+  }
+  const reference = runDuel(strategy, strategy, { rounds, noise: 0, seed: 0 });
+  const baseline = summarizeSingleError(
+    reference.rounds.map((round) => ({
+      number: round.number,
+      intendedA: round.intendedA,
+      intendedB: round.intendedB,
+      actionA: round.actionA,
+      actionB: round.actionB,
+      forcedA: false,
+      scoreA: round.scoreA,
+      scoreB: round.scoreB,
+      totalA: round.totalA,
+      totalB: round.totalB,
+    })),
+    errorRound,
+  );
+  const historyA: Action[] = [],
+    historyB: Action[] = [];
+  const trace: SingleErrorRound[] = [];
+  let totalA = 0,
+    totalB = 0;
+  for (let number = 1; number <= rounds; number++) {
+    // These three policies are deterministic; neither policy consumes this callback.
+    const intendedA = decide(strategy, historyA, historyB, () => 0);
+    const intendedB = decide(strategy, historyB, historyA, () => 0);
+    const forcedA = number === errorRound;
+    const actionA = forcedA ? (intendedA === "C" ? "D" : "C") : intendedA;
+    const actionB = intendedB;
+    const [scoreA, scoreB] = payoff(actionA, actionB);
+    totalA += scoreA;
+    totalB += scoreB;
+    trace.push({
+      number,
+      intendedA,
+      intendedB,
+      actionA,
+      actionB,
+      forcedA,
+      scoreA,
+      scoreB,
+      totalA,
+      totalB,
+    });
+    historyA.push(actionA);
+    historyB.push(actionB);
+  }
+  return {
+    strategy,
+    rounds,
+    errorRound,
+    baseline,
+    intervention: summarizeSingleError(trace, errorRound),
+  };
+}

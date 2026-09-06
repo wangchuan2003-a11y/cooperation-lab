@@ -11,6 +11,7 @@ import {
   encodeSettings,
   decodeSettings,
   duelCSV,
+  runSingleMistake,
 } from "../.test-build/game.js";
 
 const ids = ["cooperate", "defect", "tft", "generous", "grim", "wsls"];
@@ -548,4 +549,141 @@ test("share decoder rejects out-of-range, mistyped, missing, and noncanonical se
     encoded,
     "object property order must not affect a share link",
   );
+});
+
+test("single mistake preserves a cooperative baseline and scores actual actions", () => {
+  for (const strategy of ["tft", "grim", "wsls"]) {
+    const experiment = runSingleMistake(strategy, 40, 5);
+    assert.equal(experiment.strategy, strategy);
+    assert.equal(experiment.rounds, 40);
+    assert.equal(experiment.errorRound, 5);
+    assert.equal(experiment.baseline.mutualCooperation, 40);
+    assert.equal(experiment.baseline.recoveryStart, 6);
+    for (const [name, trace] of Object.entries({
+      baseline: experiment.baseline,
+      intervention: experiment.intervention,
+    })) {
+      assert.equal(trace.rounds.length, 40);
+      const historyA = [];
+      const historyB = [];
+      let totalA = 0;
+      let totalB = 0;
+      let mutual = 0;
+      for (const [index, round] of trace.rounds.entries()) {
+        const forced = name === "intervention" && index === 4;
+        assert.equal(round.number, index + 1);
+        assert.equal(round.forcedA, forced);
+        assert.equal(round.intendedA, decide(strategy, historyA, historyB, () => 0));
+        assert.equal(round.intendedB, decide(strategy, historyB, historyA, () => 0));
+        assert.equal(round.actionA, forced
+          ? (round.intendedA === "C" ? "D" : "C")
+          : round.intendedA);
+        assert.equal(round.actionB, round.intendedB, "right seat has no execution noise");
+        if (name === "baseline") {
+          assert.equal(round.actionA, "C");
+          assert.equal(round.actionB, "C");
+        }
+        const [scoreA, scoreB] = payoff(round.actionA, round.actionB);
+        assert.equal(round.scoreA, scoreA);
+        assert.equal(round.scoreB, scoreB);
+        totalA += scoreA;
+        totalB += scoreB;
+        assert.equal(round.totalA, totalA);
+        assert.equal(round.totalB, totalB);
+        mutual += Number(round.actionA === "C" && round.actionB === "C");
+        historyA.push(round.actionA);
+        historyB.push(round.actionB);
+      }
+      assert.equal(trace.mutualCooperation, mutual);
+      assert.equal(trace.rounds.filter((round) => round.forcedA).length,
+        name === "intervention" ? 1 : 0);
+    }
+  }
+});
+
+test("one fifth-round mistake produces distinct TFT, grim, and WSLS trajectories", () => {
+  const cases = [
+    {
+      strategy: "tft",
+      expected: [...Array(4).fill("CC"), ...Array.from({ length: 36 }, (_, i) => i % 2 === 0 ? "DC" : "CD")],
+      mutual: 4,
+      recovery: null,
+    },
+    {
+      strategy: "grim",
+      expected: [...Array(4).fill("CC"), "DC", "CD", ...Array(34).fill("DD")],
+      mutual: 4,
+      recovery: null,
+    },
+    {
+      strategy: "wsls",
+      expected: [...Array(4).fill("CC"), "DC", "DD", ...Array(34).fill("CC")],
+      mutual: 38,
+      recovery: 7,
+    },
+  ];
+  for (const { strategy, expected, mutual, recovery } of cases) {
+    const { intervention } = runSingleMistake(strategy, 40, 5);
+    assert.deepEqual(intervention.rounds.map((round) => round.actionA + round.actionB), expected, strategy);
+    assert.equal(intervention.mutualCooperation, mutual, strategy);
+    assert.equal(intervention.recoveryStart, recovery, strategy);
+  }
+});
+
+test("recovery requires ten complete mutual cooperation rounds strictly after the mistake", () => {
+  const ten = runSingleMistake("wsls", 40, 29);
+  assert.equal(ten.intervention.recoveryStart, 31);
+  assert.equal(ten.intervention.rounds.slice(30).length, 10);
+  assert.ok(ten.intervention.rounds.slice(30).every((round) => round.actionA === "C" && round.actionB === "C"));
+  const nine = runSingleMistake("wsls", 40, 30);
+  assert.equal(nine.intervention.recoveryStart, null);
+  assert.equal(nine.intervention.rounds.slice(31).length, 9);
+  assert.ok(nine.intervention.rounds.slice(31).every((round) => round.actionA === "C" && round.actionB === "C"));
+  assert.equal(nine.baseline.recoveryStart, 31, "baseline has exactly ten rounds after the intervention time");
+  assert.equal(runSingleMistake("wsls", 40, 31).baseline.recoveryStart, null);
+});
+
+test("single mistake supports first and final rounds at valid duration endpoints", () => {
+  for (const rounds of [20, 300]) {
+    const first = runSingleMistake("wsls", rounds, 1);
+    assert.equal(first.intervention.rounds.length, rounds);
+    assert.equal(first.intervention.rounds[0].forcedA, true);
+    assert.equal(first.intervention.mutualCooperation, rounds - 2);
+    assert.equal(first.intervention.recoveryStart, 3);
+    assert.equal(first.baseline.recoveryStart, 2);
+  }
+  for (const strategy of ["tft", "grim", "wsls"]) {
+    const last = runSingleMistake(strategy, 40, 40);
+    assert.equal(last.intervention.mutualCooperation, 39);
+    assert.equal(last.intervention.recoveryStart, null);
+    assert.equal(last.baseline.recoveryStart, null);
+    assert.ok(last.intervention.rounds.slice(0, -1).every((round) =>
+      !round.forcedA && round.actionA === "C" && round.actionB === "C"));
+    assert.equal(last.intervention.rounds.at(-1).forcedA, true);
+    assert.equal(last.intervention.rounds.at(-1).actionA, "D");
+    assert.equal(last.intervention.rounds.at(-1).actionB, "C");
+  }
+});
+
+test("single mistake rejects unsupported strategies and invalid round bounds", () => {
+  for (const strategy of ["generous", "cooperate", "defect", "unknown", null, undefined]) {
+    assert.throws(() => runSingleMistake(strategy, 40, 5), `unsupported strategy ${strategy}`);
+  }
+  for (const rounds of [0, 19, 301, 40.5, NaN, Infinity, "40", null, undefined]) {
+    assert.throws(() => runSingleMistake("tft", rounds, 5), `invalid duration ${rounds}`);
+  }
+  for (const errorRound of [-1, 0, 41, 5.5, NaN, Infinity, "5", null, undefined]) {
+    assert.throws(() => runSingleMistake("tft", 40, errorRound), `invalid mistake round ${errorRound}`);
+  }
+});
+
+test("single mistake is repeatable and does not alter tournament state", () => {
+  const settings = { rounds: 40, noise: 0.17, seed: 20260907 };
+  const before = runTournament(settings);
+  const snapshot = structuredClone(before);
+  for (const strategy of ["tft", "grim", "wsls"]) {
+    assert.deepEqual(runSingleMistake(strategy, 40, 5), runSingleMistake(strategy, 40, 5));
+  }
+  assert.deepEqual(before, snapshot, "existing tournament data remains unchanged");
+  assert.deepEqual(runTournament(settings), snapshot, "subsequent tournament draws remain unchanged");
 });

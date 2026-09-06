@@ -6,8 +6,10 @@ import {
   duelCSV,
   encodeSettings,
   getDuel,
+  runSingleMistake,
   runTournament,
   type Settings,
+  type SingleErrorStrategy,
   type StrategyId,
 } from "./game";
 
@@ -410,3 +412,63 @@ runExperiment(
       ? "分享链接无效，已载入默认实验。"
       : undefined,
 );
+
+function renderSingleMistake() {
+  const form = $<HTMLFormElement>("mistake-form");
+  if (!form.reportValidity()) return;
+  const count = Number($<HTMLInputElement>("mistake-rounds").value);
+  const at = Number($<HTMLInputElement>("mistake-at").value);
+  const pair = $<HTMLSelectElement>("mistake-pair")
+    .value as SingleErrorStrategy;
+  const comparison = runSingleMistake(pair, count, at);
+  $("mistake-baseline-count").textContent = String(
+    comparison.baseline.mutualCooperation,
+  );
+  $("mistake-intervention-count").textContent = String(
+    comparison.intervention.mutualCooperation,
+  );
+  for (const name of ["baseline", "intervention"] as const) {
+    const trace = comparison[name];
+    for (const side of ["a", "b"] as const) {
+      const track = $("mistake-" + name + "-" + side);
+      track.style.gridTemplateColumns = `repeat(${count}, minmax(2px, 1fr))`;
+      track.parentElement!.style.minWidth = `${Math.max(240, count * 3)}px`;
+      track.replaceChildren(
+        ...trace.rounds.map((round) => {
+          const action = side === "a" ? round.actionA : round.actionB;
+          const forced =
+            name === "intervention" && side === "a" && round.forcedA;
+          const cell = document.createElement("span");
+          cell.className = `mistake-action ${action.toLowerCase()}${forced ? " forced" : ""}`;
+          cell.dataset.round = String(round.number);
+          cell.title = `第 ${round.number} 轮：${action}${forced ? "（强制翻转，仅此一次）" : ""}`;
+          return cell;
+        }),
+      );
+      track.setAttribute(
+        "aria-label",
+        `${name === "baseline" ? "无干预" : "单次失误"}，${side === "a" ? "左方" : "右方"}，第 1 至 ${count} 轮实际动作：${trace.rounds.map((round) => (side === "a" ? round.actionA : round.actionB)).join(" ")}`,
+      );
+    }
+  }
+  const recovery = comparison.intervention.recoveryStart;
+  $("mistake-recovery").textContent =
+    recovery === null ? "观察窗口内未恢复" : `第 ${recovery} 轮`;
+  const outcome =
+    recovery === null
+      ? "没有观测到完整的连续 10 轮共同合作。"
+      : `第 ${recovery} 至 ${recovery + 9} 轮构成首个完整区段。`;
+  $("mistake-window").textContent =
+    `在 ${count} 轮中仅第 ${at} 轮翻转左方动作；干预后剩余 ${count - at} 轮。${outcome}`;
+}
+$("mistake-rounds").addEventListener("input", () => {
+  const value = Number($<HTMLInputElement>("mistake-rounds").value);
+  if (Number.isInteger(value) && value >= 20 && value <= 300) {
+    $<HTMLInputElement>("mistake-at").max = String(value);
+  }
+});
+$("mistake-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  renderSingleMistake();
+});
+renderSingleMistake();

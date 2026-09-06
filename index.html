@@ -233,6 +233,111 @@
       <p id="status" class="status" role="status" aria-live="polite">
         每次实验都只回答一组具体条件下的问题。
       </p>
+      <details class="single-mistake" id="single-mistake">
+        <summary>单次失误实验：只让左方错一次</summary>
+        <div class="mistake-content">
+          <p class="mistake-intro">
+            背景噪声固定为
+            0，只在指定轮次将左方的实际动作翻转一次。随后双方按原策略回应，与完全没有干预的基线对照。
+          </p>
+          <form id="mistake-form" class="mistake-controls">
+            <label for="mistake-pair"
+              >策略组合<select id="mistake-pair">
+                <option value="tft">TFT / TFT</option>
+                <option value="grim">GRIM / GRIM</option>
+                <option value="wsls">WSLS / WSLS</option>
+              </select></label
+            >
+            <label for="mistake-rounds"
+              >观察轮数<input
+                id="mistake-rounds"
+                type="number"
+                min="20"
+                max="300"
+                step="1"
+                value="40"
+                required
+            /></label>
+            <label for="mistake-at"
+              >失误发生在<input
+                id="mistake-at"
+                type="number"
+                min="1"
+                max="40"
+                step="1"
+                value="5"
+                required
+            /></label>
+            <button id="mistake-run" type="submit">运行独立对照</button>
+          </form>
+          <div class="mistake-comparison">
+            <article>
+              <h3>
+                无干预基线
+                <span
+                  >共同合作
+                  <strong id="mistake-baseline-count">—</strong> 轮</span
+                >
+              </h3>
+              <div class="mistake-scroll">
+                <div class="mistake-tracks">
+                  <span>左方实际动作</span>
+                  <div
+                    id="mistake-baseline-a"
+                    class="mistake-track"
+                    role="img"
+                  ></div>
+                  <span>右方实际动作</span>
+                  <div
+                    id="mistake-baseline-b"
+                    class="mistake-track"
+                    role="img"
+                  ></div>
+                </div>
+              </div>
+            </article>
+            <article>
+              <h3>
+                左方一次失误
+                <span
+                  >共同合作
+                  <strong id="mistake-intervention-count">—</strong> 轮</span
+                >
+              </h3>
+              <div class="mistake-scroll">
+                <div class="mistake-tracks">
+                  <span>左方实际动作</span>
+                  <div
+                    id="mistake-intervention-a"
+                    class="mistake-track"
+                    role="img"
+                  ></div>
+                  <span>右方实际动作</span>
+                  <div
+                    id="mistake-intervention-b"
+                    class="mistake-track"
+                    role="img"
+                  ></div>
+                </div>
+              </div>
+            </article>
+          </div>
+          <div class="mistake-result" role="status" aria-live="polite">
+            <span>失误后首次连续 10 轮双方合作的起点</span
+            ><strong id="mistake-recovery">—</strong>
+            <p id="mistake-window"></p>
+          </div>
+          <p class="mistake-note">
+            共同合作只计算双方都实际执行 C 的轮次。绿色 C、棕色
+            D；底部黑线标出唯一的强制翻转。“恢复”只指此处的连续 10
+            轮指标，窗口不足也不能确认。这是有限算法模型，不是人际关系建议。
+          </p>
+          <p class="mistake-scope">
+            此区域为独立局部实验，不包含在主实验分享链接中；主实验排名、对局和
+            CSV 不受影响。
+          </p>
+        </div>
+      </details>
       <section id="rules" class="rules-section">
         <div class="rules-intro">
           <p class="eyebrow">不是标签，是六段明确的规则</p>

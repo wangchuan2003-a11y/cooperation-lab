@@ -175,3 +175,53 @@ test("CSV exports the selected duel's actual actions, scores, and all rounds", a
     "24",
   ]);
 });
+
+test("one forced mistake distinguishes recovery patterns without changing the main experiment", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const matrix = await page.locator("#matrix tbody").textContent();
+  const scores = await page.locator("#score-a, #score-b").allTextContents();
+  await page.locator("#share").click();
+  await expect(page).toHaveURL(/#v1\./);
+  const sharedURL = page.url();
+  await page.locator("#single-mistake > summary").click();
+  await expect(page.locator("#mistake-baseline-count")).toHaveText("40");
+  await expect(page.locator("#mistake-intervention-count")).toHaveText("4");
+  await expect(page.locator("#mistake-recovery")).toHaveText(
+    "观察窗口内未恢复",
+  );
+  await expect(page.locator(".mistake-action.forced")).toHaveCount(1);
+  await expect(
+    page.locator('#mistake-intervention-a [data-round="5"]'),
+  ).toHaveClass(/\bd\b/);
+  await expect(
+    page.locator('#mistake-intervention-a [data-round="6"]'),
+  ).toHaveClass(/\bc\b/);
+  await page.locator("#mistake-pair").selectOption("grim");
+  await page.locator("#mistake-run").click();
+  await expect(page.locator("#mistake-intervention-count")).toHaveText("4");
+  for (const side of ["a", "b"])
+    await expect(
+      page.locator(`#mistake-intervention-${side} [data-round="7"]`),
+    ).toHaveClass(/\bd\b/);
+  await page.locator("#mistake-pair").selectOption("wsls");
+  await page.locator("#mistake-run").click();
+  await expect(page.locator("#mistake-intervention-count")).toHaveText("38");
+  await expect(page.locator("#mistake-recovery")).toHaveText("第 7 轮");
+  for (const side of ["a", "b"])
+    await expect(
+      page.locator(`#mistake-intervention-${side} [data-round="7"]`),
+    ).toHaveClass(/\bc\b/);
+  await page.locator("#mistake-at").fill("30");
+  await page.locator("#mistake-run").click();
+  await expect(page.locator("#mistake-recovery")).toHaveText(
+    "观察窗口内未恢复",
+  );
+  await expect(page.locator("#mistake-intervention-count")).toHaveText("38");
+  await expect(page.locator("#matrix tbody")).toHaveText(matrix!);
+  expect(await page.locator("#score-a, #score-b").allTextContents()).toEqual(
+    scores,
+  );
+  expect(page.url()).toBe(sharedURL);
+});
