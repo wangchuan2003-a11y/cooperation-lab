@@ -2,7 +2,7 @@
 
 [在线体验](https://wangchuan2003-a11y.github.io/cooperation-lab/)
 
-![合作策略实验实际界面](docs/preview.png)
+![合作策略实验实际界面](docs/preview.jpg)
 
 六种固定策略在重复囚徒困境中相遇。调整轮次、执行噪声和种子，查看真实计算的平均得分、合作率、对局矩阵、动作轨迹与累计得分曲线。没有 AI 模型、后端、账户或 API 密钥。
 
